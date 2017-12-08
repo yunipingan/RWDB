@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+    <context:property-placeholder location="classpath:jdbc.properties"/>
+    <bean id="dataSourceRead" class="org.apache.commons.dbcp.BasicDataSource">
+        <property name="driverClassName" value="${jdbc.driverClassName}"/>
+        <property name="url" value="${jdbc.read.url}"/>
+        <property name="username" value="${jdbc.username}"/>
+        <property name="password" value="${jdbc.password}"/>
+        <property name="maxActive" value="10"/>
+        <property name="maxIdle" value="5"/>
+
+    </bean>
+
+    <bean id="dataSourceWrite" class="org.apache.commons.dbcp.BasicDataSource">
+        <property name="driverClassName" value="${jdbc.driverClassName}"/>
+        <property name="url" value="${jdbc.url}"/>
+        <property name="username" value="${jdbc.username}"/>
+        <property name="password" value="${jdbc.password}"/>
+        <property name="maxActive" value="10"/>
+        <property name="maxIdle" value="5"/>
+
+    </bean>
+
+    <bean id="dataSource" class="cn.pingweb.core.DynamicDataSource">
+        <property name="writeDataSource" ref="dataSourceWrite" />
+        <property name="readDataSources">
+            <list>
+                <ref bean="dataSourceRead" />
+            </list>
+        </property>
+        <!--轮询方式-->
+        <property name="readDataSourcePollPattern" value="1" />
+        <property name="defaultTargetDataSource" ref="dataSourceWrite"/>
+    </bean>
+
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean" >
+
+        <!-- 加载mybatis的配置信息 -->
+        <!--<property name="configLocation" value="cn/labelnet/mybatis/config/SqlmapDaoConfig.xml"></property>-->
+
+        <!-- 加载数据源  dataSource-->
+        <property name="dataSource" ref="dataSource"></property>
+
+    </bean>
+
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <!--com.dao是mapper类所在的包-->
+        <property name="basePackage" value="cn.pingweb.mapper"/>
+        <!--下面这个省略掉的话也不会出错，建议保留它-->
+        <!--<property name="sqlSessionFactory" ref="sqlSessionFactory"/>-->
+    </bean>
+
+    <!-- 配置数据库注解aop -->
+    <bean id="dynamicDataSourceAspect" class="cn.pingweb.core.DynamicDataSourceAspect" />
+    <aop:config>
+        <aop:aspect id="c" ref="dynamicDataSourceAspect">
+            <aop:pointcut id="tx" expression="execution(* cn.pingweb.mapper..*.*(..))"/>
+            <aop:before pointcut-ref="tx" method="before"/>
+            <aop:after pointcut-ref="tx" method="after"/>
+        </aop:aspect>
+    </aop:config>
+    <!-- 配置数据库注解aop -->
+
+</beans>
